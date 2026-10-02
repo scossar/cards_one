@@ -17,7 +17,8 @@ defmodule CardsOneWeb.Router do
   scope "/", CardsOneWeb do
     pipe_through :browser
 
-    get "/", PageController, :home
+    # get "/", PageController, :home
+    live "/", HomeLive
   end
 
   # Other scopes may use custom stacks.
