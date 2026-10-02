@@ -39,6 +39,19 @@ fn create_window(app_handle: &tauri::AppHandle) {
     tauri::WebviewWindowBuilder::new(app_handle, format!("window-{}", n), url)
         .title("Cards One")
         .inner_size(800.0, 600.0)
+        .on_new_window(|url, _| {
+            // Tidewave opens its sign-in and Connect pages in a related webview.
+            if cfg!(dev)
+                && url.scheme() == "http"
+                && url.host_str() == Some("127.0.0.1")
+                && url.port_or_known_default() == Some(4000)
+                && url.path() == "/tidewave"
+            {
+                tauri::webview::NewWindowResponse::Allow
+            } else {
+                tauri::webview::NewWindowResponse::Deny
+            }
+        })
         .build()
         .unwrap();
 }

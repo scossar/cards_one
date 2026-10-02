@@ -15,6 +15,7 @@ defmodule CardsOneWeb.HomeLive do
         <button phx-click="inc" class="btn btn-sm btn-outline">+</button>
       </div>
     </div>
+    <.button navigate={~p"/cards"}>Cards</.button>
     """
   end
 
