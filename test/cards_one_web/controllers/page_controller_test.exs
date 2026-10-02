@@ -5,6 +5,6 @@ defmodule CardsOneWeb.PageControllerTest do
     conn = get(conn, ~p"/")
     document = conn |> html_response(200) |> LazyHTML.from_document()
 
-    assert document |> LazyHTML.query("a[href='/cards']") |> Enum.count() == 1
+    assert document |> LazyHTML.query("#open-cards[href='/cards']") |> Enum.count() == 1
   end
 end

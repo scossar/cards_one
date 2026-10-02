@@ -59,6 +59,22 @@ kept and the app displays a warning. Reload the card list or run `mix cards.sync
 to repair the database copy. Switching the configured catalogue replaces the
 database index with the contents of the new directory.
 
+## Search
+
+`/search` searches card filenames and Markdown bodies with SQLite FTS5. Results
+are ordered by relevance and shown in pages of 20 with plain-text excerpts and
+links to the cards. Queries are kept in the URL so they can be bookmarked.
+
+Native FTS5 queries (quoted phrases, prefixes, boolean operators, column filters,
+and proximity queries) are accepted directly by the input. The interface keeps
+the syntax implicit and reports malformed queries with a plain notice.
+
+Database triggers keep the full-text index current after card writes. Each
+search reconciles external file changes before querying, and `mix cards.sync`
+rebuilds the full-text index as well as the SQLite card copies. Search excerpts
+are HTML-escaped just like card bodies. Semantic search and generated document
+search will be added separately.
+
 To start your Phoenix server:
 
 * Run `mix setup` to install and setup dependencies

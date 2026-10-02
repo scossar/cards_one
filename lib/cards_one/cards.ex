@@ -22,9 +22,43 @@ defmodule CardsOne.Cards do
   def sync_catalogue do
     with_catalogue_lock(fn ->
       with {:ok, cards} <- read_catalogue() do
-        Database.reconcile(cards)
+        Database.reconcile(cards, rebuild_search?: true)
       end
     end)
+  end
+
+  @doc "Searches the current catalogue using the full SQLite FTS5 query syntax."
+  def search_cards(query, page \\ 1) when is_binary(query) and is_integer(page) and page > 0 do
+    query = String.trim(query)
+
+    if query == "" do
+      {:ok, %{results: [], total: 0, page: 1, pages: 1}}
+    else
+      with_catalogue_lock(fn ->
+        with {:ok, cards} <- read_catalogue(),
+             {:ok, _count} <- reconcile_for_search(cards) do
+          case Database.search(query, page) do
+            {:error, :invalid_query} ->
+              {:error, "This search could not be understood. Check your query and try again."}
+
+            {:error, :unavailable} ->
+              {:error, "Search is temporarily unavailable. Please try again."}
+
+            result ->
+              result
+          end
+        else
+          {:error, reason} -> {:error, reason}
+        end
+      end)
+    end
+  end
+
+  defp reconcile_for_search(cards) do
+    case Database.reconcile(cards) do
+      {:ok, count} -> {:ok, count}
+      {:error, _reason} -> {:error, "Search is temporarily unavailable. Please try again."}
+    end
   end
 
   defp read_catalogue do

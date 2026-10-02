@@ -43,7 +43,10 @@ defmodule CardsOneWeb.Layouts do
       >
         Cc
       </.link>
-      <.button id="header-search" navigate={~p"/search"}>Search</.button>
+      <nav aria-label="Main navigation" class="flex items-center gap-2">
+        <.button id="header-cards" navigate={~p"/cards"}>Cards</.button>
+        <.button id="header-search" navigate={~p"/search"}>Search</.button>
+      </nav>
     </header>
 
     <main class="px-4 py-20 sm:px-6 lg:px-8">
