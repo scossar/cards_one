@@ -4,9 +4,30 @@ defmodule CardsOne.Cards do
   """
 
   alias CardsOne.Cards.Card
+  alias CardsOne.Cards.Database
   alias CardsOne.Config
 
   def list_cards do
+    with_catalogue_lock(fn ->
+      with {:ok, cards} <- read_catalogue() do
+        case Database.reconcile(cards) do
+          {:ok, _count} -> {:ok, cards}
+          {:error, _reason} -> {:ok, cards, database_warning("Cards loaded from disk")}
+        end
+      end
+    end)
+  end
+
+  @doc "Rebuilds the SQLite copy from all files in the configured catalogue."
+  def sync_catalogue do
+    with_catalogue_lock(fn ->
+      with {:ok, cards} <- read_catalogue() do
+        Database.reconcile(cards)
+      end
+    end)
+  end
+
+  defp read_catalogue do
     with {:ok, directory} <- Config.catalogue_directory(),
          {:ok, filenames} <- file_result(File.ls(directory), "list the catalogue") do
       filenames
@@ -22,9 +43,13 @@ defmodule CardsOne.Cards do
               error -> {:halt, error}
             end
 
-          _ ->
+          {:ok, _stat} ->
             # Subdirectories and symbolic links are not catalogue cards.
             {:cont, {:ok, cards}}
+
+          error ->
+            # An incomplete scan must never remove database records.
+            {:halt, file_result(error, "inspect #{filename}")}
         end
       end)
       |> case do
@@ -43,30 +68,51 @@ defmodule CardsOne.Cards do
   end
 
   def create_card(attrs) do
-    with {:ok, card} <- %Card{} |> Card.changeset(attrs) |> Ecto.Changeset.apply_action(:insert),
-         {:ok, directory} <- Config.catalogue_directory() do
-      create_file(directory, card.body, :second, 10)
-    end
+    with_catalogue_lock(fn ->
+      with {:ok, card} <- %Card{} |> Card.changeset(attrs) |> Ecto.Changeset.apply_action(:insert),
+           {:ok, directory} <- Config.catalogue_directory(),
+           {:ok, saved} <- create_file(directory, card.body, :second, 10) do
+        indexed_result(saved, Database.put(saved), "Card saved to disk")
+      end
+    end)
   end
 
   def update_card(%Card{} = card, attrs) do
-    with {:ok, updated} <- card |> Card.changeset(attrs) |> Ecto.Changeset.apply_action(:update),
-         {:ok, path} <- card_path(card),
-         :ok <- check_regular_file(path),
-         :ok <- replace_file(path, updated.body) do
-      {:ok, updated}
-    end
+    with_catalogue_lock(fn ->
+      with {:ok, updated} <- card |> Card.changeset(attrs) |> Ecto.Changeset.apply_action(:update),
+           {:ok, path} <- card_path(card),
+           :ok <- check_regular_file(path),
+           :ok <- replace_file(path, updated.body) do
+        indexed_result(updated, Database.put(updated), "Card saved to disk")
+      end
+    end)
   end
 
   def delete_card(%Card{} = card) do
-    with {:ok, path} <- card_path(card),
-         :ok <- check_regular_file(path),
-         :ok <- file_result(File.rm(path), "delete #{card.filename}") do
-      {:ok, card}
-    end
+    with_catalogue_lock(fn ->
+      with {:ok, path} <- card_path(card),
+           :ok <- check_regular_file(path),
+           :ok <- file_result(File.rm(path), "delete #{card.filename}") do
+        indexed_result(card, Database.delete(card.filename), "Card file deleted")
+      end
+    end)
   end
 
   def change_card(%Card{} = card, attrs \\ %{}), do: Card.changeset(card, attrs)
+
+  defp with_catalogue_lock(operation) do
+    :global.trans({{__MODULE__, :catalogue}, self()}, operation, [node()])
+  end
+
+  defp indexed_result(card, :ok, _action), do: {:ok, card}
+
+  defp indexed_result(card, {:error, _reason}, action) do
+    {:ok, card, database_warning(action)}
+  end
+
+  defp database_warning(action) do
+    "#{action}, but the database copy could not be synchronized. Reload the card list to retry."
+  end
 
   defp create_file(_directory, _body, _unit, 0) do
     {:error, "Could not generate a unique timestamp filename. Please try again."}

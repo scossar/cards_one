@@ -93,6 +93,12 @@ defmodule CardsOneWeb.CardLive.Form do
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, form: to_form(changeset))}
 
+      {:ok, card, warning} ->
+        {:noreply,
+         socket
+         |> put_flash(:error, warning)
+         |> push_navigate(to: return_path(socket.assigns.return_to, card))}
+
       {:error, message} ->
         {:noreply, put_flash(socket, :error, message)}
     end
@@ -108,6 +114,12 @@ defmodule CardsOneWeb.CardLive.Form do
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, form: to_form(changeset))}
+
+      {:ok, card, warning} ->
+        {:noreply,
+         socket
+         |> put_flash(:error, warning)
+         |> push_navigate(to: return_path(socket.assigns.return_to, card))}
 
       {:error, message} ->
         {:noreply, put_flash(socket, :error, message)}

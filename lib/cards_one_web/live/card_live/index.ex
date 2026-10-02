@@ -68,6 +68,7 @@ defmodule CardsOneWeb.CardLive.Index do
     socket =
       case Cards.list_cards() do
         {:ok, cards} -> stream(socket, :cards, cards)
+        {:ok, cards, warning} -> socket |> put_flash(:error, warning) |> stream(:cards, cards)
         {:error, message} -> socket |> put_flash(:error, message) |> stream(:cards, [])
       end
 
@@ -76,10 +77,20 @@ defmodule CardsOneWeb.CardLive.Index do
 
   @impl true
   def handle_event("delete", %{"id" => filename}, socket) do
-    with {:ok, card} <- Cards.get_card(filename),
-         {:ok, _} <- Cards.delete_card(card) do
-      {:noreply,
-       socket |> stream_delete(:cards, card) |> put_flash(:info, "Card deleted successfully")}
+    with {:ok, card} <- Cards.get_card(filename) do
+      case Cards.delete_card(card) do
+        {:ok, deleted} ->
+          {:noreply,
+           socket
+           |> stream_delete(:cards, deleted)
+           |> put_flash(:info, "Card deleted successfully")}
+
+        {:ok, deleted, warning} ->
+          {:noreply, socket |> stream_delete(:cards, deleted) |> put_flash(:error, warning)}
+
+        {:error, message} ->
+          {:noreply, put_flash(socket, :error, message)}
+      end
     else
       {:error, message} -> {:noreply, put_flash(socket, :error, message)}
     end

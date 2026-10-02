@@ -20,8 +20,8 @@ to check the updated setting. The app does not create the catalogue directory.
 
 ## Cards
 
-Card CRUD uses Markdown files in the catalogue directory, without saving card
-records to SQLite. New cards receive a Unix timestamp filename such as
+Card CRUD writes Markdown files first, then updates their SQLite copies. The
+filesystem remains the source of truth. New cards receive a Unix timestamp filename such as
 `1790921230.md`; if it already exists, a microsecond timestamp is used instead.
 The filename is also the card's title and URL identifier, and stays unchanged
 when editing the body.
@@ -35,6 +35,29 @@ Existing `.md` files in the catalogue's top level are read directly. External
 file additions, edits, and deletions appear on the next visit. Subdirectories and
 symbolic links are ignored. Save errors leave the editor open, and delete errors
 leave the card listed with a flash notice.
+
+## Rebuilding SQLite
+
+The database has a unique index on `cards.filename`. Catalogue synchronization
+imports new files, updates existing bodies by filename, and removes records
+whose files no longer exist. It runs at app startup and whenever the card list
+is opened. A failed or incomplete filesystem scan leaves the database untouched.
+
+To rebuild the database from the configured catalogue, run:
+
+```sh
+mix cards.sync
+```
+
+This command creates a missing database, runs migrations, and synchronizes all
+cards from disk. It can be used after losing the SQLite database. The Markdown
+files are preserved; database row IDs and bookkeeping timestamps may change
+after a rebuild. Card URLs continue to use filenames.
+
+If a database write fails after a file was saved or deleted, the file change is
+kept and the app displays a warning. Reload the card list or run `mix cards.sync`
+to repair the database copy. Switching the configured catalogue replaces the
+database index with the contents of the new directory.
 
 To start your Phoenix server:
 

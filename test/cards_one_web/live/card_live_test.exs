@@ -5,6 +5,7 @@ defmodule CardsOneWeb.CardLiveTest do
   import CardsOne.CardsFixtures
 
   alias CardsOne.Cards
+  alias CardsOne.Cards.CardRecord
 
   setup do
     catalogue_fixture()
@@ -162,5 +163,49 @@ defmodule CardsOneWeb.CardLiveTest do
 
     assert {:error, {:live_redirect, %{to: "/", flash: %{"error" => _}}}} =
              live(conn, ~p"/cards/new")
+  end
+
+  test "a database save failure still displays the saved file and a warning", %{
+    conn: conn,
+    directory: directory
+  } do
+    {:ok, editor, _html} = live(conn, ~p"/cards/new")
+
+    Ecto.Adapters.SQL.query!(CardsOne.Repo, """
+    CREATE TRIGGER block_card_inserts BEFORE INSERT ON cards
+    BEGIN SELECT RAISE(ABORT, 'test database write failure'); END
+    """)
+
+    {:ok, index, _html} =
+      editor
+      |> form("#card-form", card: %{body: "Saved even when SQLite fails"})
+      |> render_submit()
+      |> follow_redirect(conn, ~p"/cards")
+
+    [filename] = File.ls!(directory)
+    assert File.read!(Path.join(directory, filename)) == "Saved even when SQLite fails"
+    assert has_element?(index, ~s([id="cards-#{filename}"]))
+    assert has_element?(index, "#flash-error", "database copy")
+    refute CardsOne.Repo.get_by(CardRecord, filename: filename)
+  end
+
+  test "a database delete failure removes the deleted file from the view", %{
+    conn: conn,
+    directory: directory
+  } do
+    card = card_fixture()
+    {:ok, index, _html} = live(conn, ~p"/cards")
+
+    Ecto.Adapters.SQL.query!(CardsOne.Repo, """
+    CREATE TRIGGER block_card_deletes BEFORE DELETE ON cards
+    BEGIN SELECT RAISE(ABORT, 'test database delete failure'); END
+    """)
+
+    index |> element(~s([id="delete-#{card.filename}"])) |> render_click()
+
+    refute File.exists?(Path.join(directory, card.filename))
+    refute has_element?(index, ~s([id="cards-#{card.filename}"]))
+    assert has_element?(index, "#flash-error", "Card file deleted")
+    assert CardsOne.Repo.get_by(CardRecord, filename: card.filename)
   end
 end

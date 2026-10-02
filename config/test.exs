@@ -2,6 +2,7 @@ import Config
 
 # Tests never read or create the user's desktop configuration.
 config :cards_one,
+  sync_catalogue_on_start: false,
   config_file: Path.join(System.tmp_dir!(), "cards_one-test-#{System.pid()}/config.toml")
 
 # Configure your database

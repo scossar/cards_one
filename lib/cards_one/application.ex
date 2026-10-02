@@ -4,6 +4,7 @@ defmodule CardsOne.Application do
   @moduledoc false
 
   use Application
+  require Logger
 
   @impl true
   def start(_type, _args) do
@@ -25,6 +26,13 @@ defmodule CardsOne.Application do
       CardsOneWeb.Endpoint,
       {Task,
        fn ->
+         if Application.get_env(:cards_one, :sync_catalogue_on_start, true) do
+           case CardsOne.Cards.sync_catalogue() do
+             {:ok, count} -> Logger.info("Synchronized #{count} cards from the catalogue")
+             {:error, reason} -> Logger.warning("Catalogue synchronization skipped: #{reason}")
+           end
+         end
+
          if pubsub do
            ElixirKit.PubSub.broadcast("messages", "ready")
          end

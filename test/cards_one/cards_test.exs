@@ -3,14 +3,14 @@ defmodule CardsOne.CardsTest do
 
   alias CardsOne.Cards
   alias CardsOne.Cards.Card
+  alias CardsOne.Cards.CardRecord
   import CardsOne.CardsFixtures
 
   setup do
     catalogue_fixture()
   end
 
-  test "CRUD uses Markdown files and leaves SQLite unchanged", %{directory: directory} do
-    count_before = Repo.one(from c in "cards", select: count(c.id))
+  test "CRUD writes files first and maintains their SQLite copies", %{directory: directory} do
     before = System.system_time(:second)
 
     body =
@@ -22,6 +22,7 @@ defmodule CardsOne.CardsTest do
     assert card.id == card.filename
     path = Path.join(directory, card.filename)
     assert File.read!(path) == body
+    assert Repo.get_by!(CardRecord, filename: card.filename).body == body
     assert {:ok, [^card]} = Cards.list_cards()
     assert {:ok, ^card} = Cards.get_card(card.filename)
 
@@ -30,6 +31,7 @@ defmodule CardsOne.CardsTest do
 
     assert updated.filename == card.filename
     assert File.read!(path) == "## Updated\n"
+    assert Repo.get_by!(CardRecord, filename: card.filename).body == "## Updated\n"
     assert File.ls!(directory) == [card.filename]
     assert {:ok, ^updated} = Cards.get_card(card.filename)
 
@@ -37,7 +39,7 @@ defmodule CardsOne.CardsTest do
     refute File.exists?(path)
     assert {:ok, []} = Cards.list_cards()
     assert {:error, _} = Cards.get_card(card.filename)
-    assert Repo.one(from c in "cards", select: count(c.id)) == count_before
+    refute Repo.get_by(CardRecord, filename: card.filename)
   end
 
   test "rapid creation never overwrites an existing card", %{directory: directory} do
