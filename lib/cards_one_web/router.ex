@@ -17,7 +17,6 @@ defmodule CardsOneWeb.Router do
   scope "/", CardsOneWeb do
     pipe_through :browser
 
-    # get "/", PageController, :home
     live "/", HomeLive
   end
 
