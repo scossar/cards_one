@@ -78,7 +78,7 @@ are HTML-escaped just like card bodies.
 
 Select **Semantic** on `/search` to search by meaning. Bumblebee/Nx runs the
 pinned `sentence-transformers/all-MiniLM-L6-v2` model locally with EXLA on the CPU.
-SqliteVec loads sqlite-vec into every Repo connection and stores 384-dimensional
+Exqlite loads the bundled sqlite-vec native library into every Repo connection and stores 384-dimensional
 float32 vectors in a `vec0` table. Searches use cosine distance, group matches
 by file, and paginate results. Semantic search returns the closest indexed cards;
 there is currently no similarity cutoff.
@@ -108,11 +108,32 @@ The first launch downloads model assets into `~/.cache/cards_one/models`.
 revision in `CardsOne.SemanticSearch.Model`.
 
 For desktop distribution, ship those model assets and set `CARDS_ONE_MODEL_DIR`,
-or arrange the initial download. Elixir releases include the sqlite-vec extension,
-tokenizer NIF and EXLA native libraries through their dependencies' `priv`
-directories. EXLA is configured to build for CPU even when CUDA tools are installed.
-Bumblebee 0.6.3 / Nx and EXLA 0.9 are selected to match SqliteVec 0.1's Nx constraint.
+or arrange the initial download. Elixir releases include sqlite-vec from the
+application's own `priv/sqlite` directory, and the tokenizer NIF and EXLA native
+libraries from their dependencies. EXLA is configured to build for CPU even when
+CUDA tools are installed. The `sqlite_vec` Hex wrapper is no longer a dependency,
+so it no longer constrains Nx upgrades. The current stack uses Bumblebee 0.8.0,
+Nx 1.0.0 and EXLA 1.0.0. This upgrade changes the embedding configuration key,
+so existing semantic embeddings are automatically regenerated on startup.
 The ordinary test suite uses deterministic embedding fixtures and does not download models.
+
+### Native SQLite extension
+
+sqlite-vec is pinned to native version **0.1.5**, the same version previously
+provided by the Hex wrapper. The upstream shared libraries for Linux (glibc)
+x86-64/AArch64, macOS x86-64/AArch64, and Windows x86-64 are bundled in
+`priv/sqlite/0.1.5/`. Only Linux x86-64 has been execution-tested here.
+The runtime selects the matching platform, verifies its SHA-256 checksum, and
+resolves its absolute path relative to the installed application. No download
+or build tools are needed at application startup. Missing, corrupted, or
+unsupported libraries produce an explicit startup error.
+
+Run `mix sqlite_vec.install --all` to verify bundled files offline, or
+`mix sqlite_vec.install --all --force` to reproduce them from the pinned upstream
+archives. `--target linux-aarch64` selects an individual platform; the default is
+the current platform. Both archive and library checksums are checked before a
+download replaces a file. Run restoration before building a release.
+See `priv/sqlite/README.md` for provenance, licensing and upgrade instructions.
 
 To start your Phoenix server:
 

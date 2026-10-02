@@ -4,7 +4,9 @@ defmodule CardsOne.SemanticSearch.Model do
   @model "sentence-transformers/all-MiniLM-L6-v2"
   @revision "1110a243fdf4706b3f48f1d95db1a4f5529b4d41"
 
-  def key, do: "#{@model}@#{@revision}:mean:l2:whole-card-v1:256"
+  # Runtime upgrades can change embeddings even with the same model weights.
+  # A new key makes the rebuildable index discard incompatible vectors.
+  def key, do: "#{@model}@#{@revision}:mean:l2:whole-card-v1:256:bumblebee-0.8-nx-1"
 
   def load do
     repository =

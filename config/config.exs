@@ -12,7 +12,8 @@ config :cards_one,
   generators: [timestamp_type: :utc_datetime]
 
 # CPU inference also builds on machines with an unrelated CUDA toolkit installed.
-config :exla, make_args: ["-j4", "NVCC_TEST="]
+System.put_env("XLA_TARGET", "cpu")
+config :exla, make_args: ["-j4", "EXLA_CPU_ONLY=1"]
 
 # Configure the endpoint
 config :cards_one, CardsOneWeb.Endpoint,

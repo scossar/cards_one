@@ -5,6 +5,7 @@ defmodule CardsOne.Repo do
 
   @impl true
   def init(_type, config) do
-    {:ok, Keyword.put(config, :load_extensions, [SqliteVec.path()])}
+    extensions = [CardsOne.SQLiteExtension.path!() | Keyword.get(config, :load_extensions, [])]
+    {:ok, Keyword.put(config, :load_extensions, Enum.uniq(extensions))}
   end
 end

@@ -1,0 +1,30 @@
+{
+  "version": "0.1.5",
+  "artifacts": {
+    "linux-aarch64": {
+      "filename": "vec0.so",
+      "sha256": "f47d13abe94caddcc07c2cbfbd93b31bee3cdd002f093266d30f3b84785c8f95",
+      "archive_sha256": "8ce460c1f2adcbbc709f5ca1d1a3578c34c62c131d1a044bd3ff7c0729be2137"
+    },
+    "linux-x86_64": {
+      "filename": "vec0.so",
+      "sha256": "605cce9e08e31a53ae1e306e41c0295d8a0e10459f6f850916f32052b0312e7e",
+      "archive_sha256": "626bb9b66896269facdf7f87d94c308bf0523cb1e584ff7ff5b3f51936f21d24"
+    },
+    "macos-aarch64": {
+      "filename": "vec0.dylib",
+      "sha256": "45d67c7868152c1b9b4b86cd1cea1d8834136e13f8e0348648b89f8aa90e7b5b",
+      "archive_sha256": "348ea4ce39b4b4749b19ee93e5e9674d6ed7616e3e313cb20f6354cdecbebc75"
+    },
+    "macos-x86_64": {
+      "filename": "vec0.dylib",
+      "sha256": "ba8fc1f82c8ad19226d0b49d5f0d90d66f93f77acccd1f66331f8e40bcab2a1b",
+      "archive_sha256": "1daa90b7cdda7e873af4636a20a2b6daf0ebd4d664f2bbbcc2ffeae219bf34b6"
+    },
+    "windows-x86_64": {
+      "filename": "vec0.dll",
+      "sha256": "b16ccd3c7ffe885bb86decb2846e33e31ce0b3049b1c4c88fd0339b05cba76a8",
+      "archive_sha256": "cfd31e96d2edf27749c4c2063134737fc98ac87b6e113acf204db57563b078bc"
+    }
+  }
+}
