@@ -7,6 +7,8 @@ defmodule CardsOne.Application do
 
   @impl true
   def start(_type, _args) do
+    # Configuration errors are shown on the home page rather than stopping the app.
+    _ = CardsOne.Config.ensure_file()
     pubsub = System.get_env("ELIXIRKIT_PUBSUB")
 
     children = [

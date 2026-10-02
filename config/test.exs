@@ -1,5 +1,9 @@
 import Config
 
+# Tests never read or create the user's desktop configuration.
+config :cards_one,
+  config_file: Path.join(System.tmp_dir!(), "cards_one-test-#{System.pid()}/config.toml")
+
 # Configure your database
 #
 # The MIX_TEST_PARTITION environment variable can be used

@@ -3,13 +3,21 @@ defmodule CardsOneWeb.HomeLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, count: 0)}
+    socket =
+      case CardsOne.Config.catalogue_directory() do
+        {:ok, _directory} -> socket
+        {:error, notice} -> put_flash(socket, :info, notice)
+      end
+
+    {:ok, socket}
   end
 
   @impl true
   def render(assigns) do
     ~H"""
-    <.button navigate={~p"/cards"}>Cards</.button>
+    <Layouts.app flash={@flash}>
+      <.button id="open-cards" navigate={~p"/cards"}>Cards</.button>
+    </Layouts.app>
     """
   end
 end
