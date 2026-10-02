@@ -7,6 +7,8 @@ defmodule CardsOne.Application do
 
   @impl true
   def start(_type, _args) do
+    pubsub = System.get_env("ELIXIRKIT_PUBSUB")
+
     children = [
       CardsOneWeb.Telemetry,
       CardsOne.Repo,
@@ -17,7 +19,14 @@ defmodule CardsOne.Application do
       # Start a worker by calling: CardsOne.Worker.start_link(arg)
       # {CardsOne.Worker, arg},
       # Start to serve requests, typically the last entry
-      CardsOneWeb.Endpoint
+      {ElixirKit.PubSub, connect: pubsub || :ignore, on_exit: fn -> System.stop() end},
+      CardsOneWeb.Endpoint,
+      {Task,
+       fn ->
+         if pubsub do
+           ElixirKit.PubSub.broadcast("messages", "ready")
+         end
+       end}
     ]
 
     # See https://elixir.hexdocs.pm/Supervisor.html
