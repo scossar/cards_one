@@ -6,6 +6,7 @@
   "build": {},
   "app": {
     "withGlobalTauri": true,
+    "enableGTKAppId": true,
     "security": {
       "csp": null
     }

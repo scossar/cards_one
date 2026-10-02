@@ -388,6 +388,7 @@ name = "cards_one"
 version = "0.1.0"
 dependencies = [
  "elixirkit",
+ "glib",
  "serde",
  "serde_json",
  "tauri",
