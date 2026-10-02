@@ -18,6 +18,7 @@ defmodule CardsOneWeb.Router do
     pipe_through :browser
 
     live "/", HomeLive
+    live "/search", SearchLive
     live "/cards", CardLive.Index, :index
     live "/cards/new", CardLive.Form, :new
     live "/cards/:id", CardLive.Show, :show

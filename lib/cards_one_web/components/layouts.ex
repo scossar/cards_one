@@ -35,7 +35,7 @@ defmodule CardsOneWeb.Layouts do
 
   def app(assigns) do
     ~H"""
-    <header id="app-header" class="flex h-16 items-center px-4 sm:px-6 lg:px-8">
+    <header id="app-header" class="flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
       <.link
         id="home-link"
         navigate={~p"/"}
@@ -43,6 +43,7 @@ defmodule CardsOneWeb.Layouts do
       >
         Cc
       </.link>
+      <.button id="header-search" navigate={~p"/search"}>Search</.button>
     </header>
 
     <main class="px-4 py-20 sm:px-6 lg:px-8">
