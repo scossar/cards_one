@@ -19,6 +19,9 @@ defmodule CardsOne.Application do
        repos: Application.fetch_env!(:cards_one, :ecto_repos), skip: skip_migrations?()},
       {DNSCluster, query: Application.get_env(:cards_one, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: CardsOne.PubSub},
+      {Task.Supervisor, name: CardsOne.SemanticSearch.Tasks},
+      {DynamicSupervisor, name: CardsOne.SemanticSearch.Servings, strategy: :one_for_one},
+      CardsOne.SemanticSearch.Worker,
       # Start a worker by calling: CardsOne.Worker.start_link(arg)
       # {CardsOne.Worker, arg},
       # Start to serve requests, typically the last entry

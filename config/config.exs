@@ -11,6 +11,9 @@ config :cards_one,
   ecto_repos: [CardsOne.Repo],
   generators: [timestamp_type: :utc_datetime]
 
+# CPU inference also builds on machines with an unrelated CUDA toolkit installed.
+config :exla, make_args: ["-j4", "NVCC_TEST="]
+
 # Configure the endpoint
 config :cards_one, CardsOneWeb.Endpoint,
   url: [host: "localhost"],

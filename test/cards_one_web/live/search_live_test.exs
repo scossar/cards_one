@@ -109,4 +109,35 @@ defmodule CardsOneWeb.SearchLiveTest do
     assert has_element?(view, "#flash-error", "temporarily unavailable")
     refute has_element?(view, "#search-results > article")
   end
+
+  test "semantic form search runs asynchronously and preserves its mode", %{conn: conn} do
+    Application.put_env(:cards_one, :embedding_provider, CardsOne.EmbeddingFixture)
+    on_exit(fn -> Application.delete_env(:cards_one, :embedding_provider) end)
+    matching = card_fixture(%{body: "An automobile <script>alert(1)</script>"})
+    assert {:ok, 1} = CardsOne.SemanticSearch.index_pending()
+    {:ok, view, _} = live(conn, ~p"/search")
+    view |> form("#search-form", search: %{query: "vehicle", mode: "semantic"}) |> render_submit()
+    assert_patch(view, ~p"/search?#{%{q: "vehicle", mode: "semantic"}}")
+    render_async(view)
+    assert has_element?(view, "#search-mode option[value='semantic'][selected]")
+    assert has_element?(view, "#search-results a[href='/cards/#{matching.filename}']")
+    refute has_element?(view, "#search-loading")
+    refute has_element?(view, "#search-results script")
+    view |> form("#search-form", search: %{query: "automobile", mode: "text"}) |> render_submit()
+    assert_patch(view, ~p"/search?#{%{q: "automobile"}}")
+    assert has_element?(view, "#search-results a[href='/cards/#{matching.filename}']")
+  end
+
+  test "semantic model unavailability leaves text search usable", %{conn: conn} do
+    card = card_fixture(%{body: "Fallbackword"})
+    {:ok, view, _} = live(conn, ~p"/search?#{%{q: "vehicle", mode: "semantic"}}")
+    render_async(view)
+    assert has_element?(view, "#flash-error")
+
+    view
+    |> form("#search-form", search: %{query: "Fallbackword", mode: "text"})
+    |> render_submit()
+
+    assert has_element?(view, "#search-results a[href='/cards/#{card.filename}']")
+  end
 end

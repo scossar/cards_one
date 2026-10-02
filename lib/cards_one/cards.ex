@@ -61,6 +61,36 @@ defmodule CardsOne.Cards do
     end
   end
 
+  @doc "Searches file content by meaning using the local embedding model."
+  def semantic_search_cards(query, page \\ 1) do
+    query = String.trim(query)
+
+    if query == "" do
+      {:ok, %{results: [], total: 0, page: 1, pages: 1, pending: 0}}
+    else
+      with {:ok, _cards} <- normalize_catalogue_result(list_cards()) do
+        case CardsOne.SemanticSearch.search(query, page) do
+          {:error, :loading} ->
+            {:error, "Semantic search is preparing its model. Please try again shortly."}
+
+          {:error, _} ->
+            {:error,
+             "Semantic search is temporarily unavailable. Text search is still available."}
+
+          result ->
+            result
+        end
+      end
+    end
+  end
+
+  defp normalize_catalogue_result({:ok, cards}), do: {:ok, cards}
+
+  defp normalize_catalogue_result({:ok, _cards, _warning}),
+    do: {:error, "Search is temporarily unavailable. Please try again."}
+
+  defp normalize_catalogue_result(error), do: error
+
   defp read_catalogue do
     with {:ok, directory} <- Config.catalogue_directory(),
          {:ok, filenames} <- file_result(File.ls(directory), "list the catalogue") do

@@ -6,28 +6,32 @@ defmodule CardsOne.Cards.Database do
   alias CardsOne.Repo
 
   def reconcile(cards, opts \\ []) do
-    database_operation(fn ->
-      Repo.transact(fn ->
-        upsert_cards(cards)
-        filenames = Enum.map(cards, & &1.filename)
+    result =
+      database_operation(fn ->
+        Repo.transact(fn ->
+          upsert_cards(cards)
+          filenames = Enum.map(cards, & &1.filename)
 
-        stale =
-          if filenames == [] do
-            CardRecord
-          else
-            from record in CardRecord,
-              where: is_nil(record.filename) or record.filename not in ^filenames
+          stale =
+            if filenames == [] do
+              CardRecord
+            else
+              from record in CardRecord,
+                where: is_nil(record.filename) or record.filename not in ^filenames
+            end
+
+          Repo.delete_all(stale)
+
+          if opts[:rebuild_search?] do
+            Repo.query!("INSERT INTO cards_fts(cards_fts) VALUES ('rebuild')")
           end
 
-        Repo.delete_all(stale)
-
-        if opts[:rebuild_search?] do
-          Repo.query!("INSERT INTO cards_fts(cards_fts) VALUES ('rebuild')")
-        end
-
-        {:ok, length(cards)}
+          {:ok, length(cards)}
+        end)
       end)
-    end)
+
+    CardsOne.SemanticSearch.Worker.wake()
+    result
   end
 
   def search(query, page) do
@@ -80,10 +84,14 @@ defmodule CardsOne.Cards.Database do
   end
 
   def put(card) do
-    database_operation(fn ->
-      upsert_cards([card])
-      :ok
-    end)
+    result =
+      database_operation(fn ->
+        upsert_cards([card])
+        :ok
+      end)
+
+    CardsOne.SemanticSearch.Worker.wake()
+    result
   end
 
   def delete(filename) do

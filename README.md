@@ -72,8 +72,47 @@ the syntax implicit and reports malformed queries with a plain notice.
 Database triggers keep the full-text index current after card writes. Each
 search reconciles external file changes before querying, and `mix cards.sync`
 rebuilds the full-text index as well as the SQLite card copies. Search excerpts
-are HTML-escaped just like card bodies. Semantic search and generated document
-search will be added separately.
+are HTML-escaped just like card bodies.
+
+### Semantic search
+
+Select **Semantic** on `/search` to search by meaning. Bumblebee/Nx runs the
+pinned `sentence-transformers/all-MiniLM-L6-v2` model locally with EXLA on the CPU.
+SqliteVec loads sqlite-vec into every Repo connection and stores 384-dimensional
+float32 vectors in a `vec0` table. Searches use cosine distance, group matches
+by file, and paginate results. Semantic search returns the closest indexed cards;
+there is currently no similarity cutoff.
+
+Embedding records have independent integer IDs. The filename is non-unique
+metadata, alongside the source card ID, content hash, model/pipeline version,
+position and embedded text. Multiple embeddings can belong to one file.
+Chunking is deliberately deferred: for now each nonblank card has one embedding,
+and only its first 256 tokens (including special tokens) are considered. The
+filename is not included in the model input. Generated documents are not indexed yet.
+
+Model loading and indexing happen in supervised background tasks. Card writes
+invalidate obsolete vectors atomically; unchanged cards keep their embeddings.
+External file changes are reconciled on the next card list/search/sync. Results
+report pending indexing, and stale inference results are discarded if a card
+changed or disappeared while inference was running. Model failures are retried
+and do not prevent card CRUD or full-text search.
+
+`mix cards.sync` recreates the database tables and reconciles source files.
+The running app then regenerates missing embeddings in the background. The
+command itself does not wait for embedding generation before exiting.
+
+The first launch downloads model assets into `~/.cache/cards_one/models`.
+`CARDS_ONE_MODEL_CACHE` overrides that directory. After warming this cache,
+`CARDS_ONE_MODEL_OFFLINE=true` prevents Hugging Face requests. Alternatively,
+`CARDS_ONE_MODEL_DIR` loads local model assets instead; they must match the pinned
+revision in `CardsOne.SemanticSearch.Model`.
+
+For desktop distribution, ship those model assets and set `CARDS_ONE_MODEL_DIR`,
+or arrange the initial download. Elixir releases include the sqlite-vec extension,
+tokenizer NIF and EXLA native libraries through their dependencies' `priv`
+directories. EXLA is configured to build for CPU even when CUDA tools are installed.
+Bumblebee 0.6.3 / Nx and EXLA 0.9 are selected to match SqliteVec 0.1's Nx constraint.
+The ordinary test suite uses deterministic embedding fixtures and does not download models.
 
 To start your Phoenix server:
 
