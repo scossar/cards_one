@@ -8,57 +8,80 @@ defmodule CardsOneWeb.CardLive.Index do
     ~H"""
     <Layouts.app flash={@flash}>
       <.header>
-        Listing Cards
+        Cards
         <:actions>
-          <.button variant="primary" navigate={~p"/cards/new"}>
+          <.button id="new-card" variant="primary" navigate={~p"/cards/new"}>
             <.icon name="hero-plus" /> New Card
           </.button>
         </:actions>
       </.header>
 
-      <.table
-        id="cards"
-        rows={@streams.cards}
-        row_click={fn {_id, card} -> JS.navigate(~p"/cards/#{card}") end}
-      >
-        <:col :let={{_id, card}} label="Filename">{card.filename}</:col>
-        <:col :let={{_id, card}} label="Body">{card.body}</:col>
-        <:action :let={{_id, card}}>
-          <div class="sr-only">
-            <.link navigate={~p"/cards/#{card}"}>Show</.link>
-          </div>
-          <.link navigate={~p"/cards/#{card}/edit"}>Edit</.link>
-        </:action>
-        <:action :let={{id, card}}>
+      <div id="cards" phx-update="stream" class="space-y-3">
+        <p
+          id="cards-empty"
+          class="hidden only:block rounded-xl border border-base-300 p-6 text-base-content/60"
+        >
+          No cards yet. Create your first note.
+        </p>
+        <article
+          :for={{id, card} <- @streams.cards}
+          id={id}
+          class="rounded-xl border border-base-300 p-5 transition-colors hover:border-base-content/30"
+        >
           <.link
-            phx-click={JS.push("delete", value: %{id: card.id}) |> hide("##{id}")}
-            data-confirm="Are you sure?"
+            id={"show-#{card.filename}"}
+            navigate={~p"/cards/#{card}"}
+            class="font-mono text-sm font-semibold hover:underline"
           >
-            Delete
+            {card.filename}
           </.link>
-        </:action>
-      </.table>
+          <p class="mt-3 whitespace-pre-wrap break-words text-sm text-base-content/70">
+            {String.slice(card.body, 0, 180)}
+          </p>
+          <div class="mt-4 flex gap-4 text-sm">
+            <.link
+              id={"edit-#{card.filename}"}
+              navigate={~p"/cards/#{card}/edit"}
+              class="hover:underline"
+            >Edit</.link>
+            <button
+              id={"delete-#{card.filename}"}
+              type="button"
+              phx-click="delete"
+              phx-value-id={card.filename}
+              data-confirm="Delete this card file?"
+              class="cursor-pointer text-red-600 transition-colors hover:text-red-700"
+            >
+              Delete
+            </button>
+          </div>
+        </article>
+      </div>
     </Layouts.app>
     """
   end
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok,
-     socket
-     |> assign(:page_title, "Listing Cards")
-     |> stream(:cards, list_cards())}
+    socket = assign(socket, :page_title, "Cards")
+
+    socket =
+      case Cards.list_cards() do
+        {:ok, cards} -> stream(socket, :cards, cards)
+        {:error, message} -> socket |> put_flash(:error, message) |> stream(:cards, [])
+      end
+
+    {:ok, socket}
   end
 
   @impl true
-  def handle_event("delete", %{"id" => id}, socket) do
-    card = Cards.get_card!(id)
-    {:ok, _} = Cards.delete_card(card)
-
-    {:noreply, stream_delete(socket, :cards, card)}
-  end
-
-  defp list_cards() do
-    Cards.list_cards()
+  def handle_event("delete", %{"id" => filename}, socket) do
+    with {:ok, card} <- Cards.get_card(filename),
+         {:ok, _} <- Cards.delete_card(card) do
+      {:noreply,
+       socket |> stream_delete(:cards, card) |> put_flash(:info, "Card deleted successfully")}
+    else
+      {:error, message} -> {:noreply, put_flash(socket, :error, message)}
+    end
   end
 end

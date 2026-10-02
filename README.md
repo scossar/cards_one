@@ -18,8 +18,23 @@ An empty, missing, or unwritable directory produces a notice on `/`. Invalid or
 unreadable config files also produce a notice. Reload `/` after editing the file
 to check the updated setting. The app does not create the catalogue directory.
 
-This configuration step does not yet change the generated card CRUD to read or
-write Markdown files.
+## Cards
+
+Card CRUD uses Markdown files in the catalogue directory, without saving card
+records to SQLite. New cards receive a Unix timestamp filename such as
+`1790921230.md`; if it already exists, a microsecond timestamp is used instead.
+The filename is also the card's title and URL identifier, and stays unchanged
+when editing the body.
+
+The editor and read view show full Markdown syntax as plain text. Bodies are
+preserved in the files, including whitespace, fenced code, and HTML examples.
+Phoenix escapes the displayed text so HTML and script tags cannot execute.
+Empty notes are allowed; no Markdown parser is required for this stage.
+
+Existing `.md` files in the catalogue's top level are read directly. External
+file additions, edits, and deletions appear on the next visit. Subdirectories and
+symbolic links are ignored. Save errors leave the editor open, and delete errors
+leave the card listed with a flash notice.
 
 To start your Phoenix server:
 

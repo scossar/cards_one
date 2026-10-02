@@ -4,119 +4,163 @@ defmodule CardsOneWeb.CardLiveTest do
   import Phoenix.LiveViewTest
   import CardsOne.CardsFixtures
 
-  @create_attrs %{filename: "some filename", body: "some body"}
-  @update_attrs %{filename: "some updated filename", body: "some updated body"}
-  @invalid_attrs %{filename: nil, body: nil}
-  defp create_card(_) do
+  alias CardsOne.Cards
+
+  setup do
+    catalogue_fixture()
+  end
+
+  test "creates a timestamp-named file using only the Markdown input", %{
+    conn: conn,
+    directory: directory
+  } do
+    {:ok, index, _html} = live(conn, ~p"/cards")
+    assert has_element?(index, "#cards")
+
+    {:ok, editor, _html} =
+      index |> element("#new-card") |> render_click() |> follow_redirect(conn, ~p"/cards/new")
+
+    assert has_element?(editor, "#card-form textarea[name='card[body]']")
+    refute has_element?(editor, "#card-form input[name='card[filename]']")
+
+    body = "# Heading\n\n**Markdown** with a [link](https://example.com).\n"
+
+    {:ok, index, _html} =
+      editor
+      |> form("#card-form", card: %{body: body})
+      |> render_submit()
+      |> follow_redirect(conn, ~p"/cards")
+
+    assert {:ok, [card]} = Cards.list_cards()
+    assert File.read!(Path.join(directory, card.filename)) == body
+    assert has_element?(index, ~s([id="show-#{card.filename}"]), card.filename)
+    assert has_element?(index, "#flash-info", "Card created successfully")
+  end
+
+  test "updates a file and keeps its filename", %{conn: conn, directory: directory} do
     card = card_fixture()
+    {:ok, index, _html} = live(conn, ~p"/cards")
 
-    %{card: card}
+    {:ok, editor, _html} =
+      index
+      |> element(~s([id="edit-#{card.filename}"]))
+      |> render_click()
+      |> follow_redirect(conn, ~p"/cards/#{card}/edit")
+
+    assert has_element?(editor, "#card-form textarea", card.body)
+
+    {:ok, index, _html} =
+      editor
+      |> form("#card-form", card: %{body: "Updated **note**"})
+      |> render_submit()
+      |> follow_redirect(conn, ~p"/cards")
+
+    assert File.read!(Path.join(directory, card.filename)) == "Updated **note**"
+    assert File.ls!(directory) == [card.filename]
+    assert has_element?(index, ~s([id="cards-#{card.filename}"]), "Updated **note**")
   end
 
-  describe "Index" do
-    setup [:create_card]
+  test "deletes the file and removes the listing", %{conn: conn, directory: directory} do
+    card = card_fixture()
+    {:ok, index, _html} = live(conn, ~p"/cards")
+    assert has_element?(index, ~s([id="cards-#{card.filename}"]))
 
-    test "lists all cards", %{conn: conn, card: card} do
-      {:ok, _index_live, html} = live(conn, ~p"/cards")
+    index |> element(~s([id="delete-#{card.filename}"])) |> render_click()
 
-      assert html =~ "Listing Cards"
-      assert html =~ card.filename
-    end
+    refute has_element?(index, ~s([id="cards-#{card.filename}"]))
+    refute File.exists?(Path.join(directory, card.filename))
+    assert has_element?(index, "#flash-info", "Card deleted successfully")
+  end
 
-    test "saves new card", %{conn: conn} do
-      {:ok, index_live, _html} = live(conn, ~p"/cards")
+  test "reads the full Markdown literally and does not activate HTML or scripts", %{conn: conn} do
+    body =
+      "# Title\n\n<script>alert('x')</script><img src=x onerror=alert(1)>\n\n```html\n<b>code</b>\n```\n\n    <script>indented</script>\n"
 
-      assert {:ok, form_live, _} =
-               index_live
-               |> element("a", "New Card")
-               |> render_click()
-               |> follow_redirect(conn, ~p"/cards/new")
+    card = card_fixture(%{body: body})
+    {:ok, show, _html} = live(conn, ~p"/cards/#{card}")
 
-      assert render(form_live) =~ "New Card"
+    assert has_element?(show, "#card-title", card.filename)
+    assert has_element?(show, "#card-body")
+    refute has_element?(show, "#card-body script")
+    refute has_element?(show, "#card-body img")
+    refute has_element?(show, "#card-body b")
+    refute has_element?(show, "#card-body h1")
 
-      assert form_live
-             |> form("#card-form", card: @invalid_attrs)
-             |> render_change() =~ "can&#39;t be blank"
+    assert show
+           |> render()
+           |> LazyHTML.from_fragment()
+           |> LazyHTML.query("#card-body")
+           |> LazyHTML.text() == body
+  end
 
-      assert {:ok, index_live, _html} =
-               form_live
-               |> form("#card-form", card: @create_attrs)
-               |> render_submit()
-               |> follow_redirect(conn, ~p"/cards")
+  test "editing from the read view returns to the card", %{conn: conn, directory: directory} do
+    card = card_fixture()
+    {:ok, show, _html} = live(conn, ~p"/cards/#{card}")
 
-      html = render(index_live)
-      assert html =~ "Card created successfully"
-      assert html =~ "some filename"
-    end
+    {:ok, editor, _html} =
+      show
+      |> element("#edit-card")
+      |> render_click()
+      |> follow_redirect(conn, ~p"/cards/#{card}/edit?return_to=show")
 
-    test "updates card in listing", %{conn: conn, card: card} do
-      {:ok, index_live, _html} = live(conn, ~p"/cards")
+    {:ok, show, _html} =
+      editor
+      |> form("#card-form", card: %{body: "## Changed\n"})
+      |> render_submit()
+      |> follow_redirect(conn, ~p"/cards/#{card}")
 
-      assert {:ok, form_live, _html} =
-               index_live
-               |> element("#cards-#{card.id} a", "Edit")
-               |> render_click()
-               |> follow_redirect(conn, ~p"/cards/#{card}/edit")
+    assert has_element?(show, "#card-title", card.filename)
+    assert has_element?(show, "#card-body", "## Changed")
+    assert File.read!(Path.join(directory, card.filename)) == "## Changed\n"
+  end
 
-      assert render(form_live) =~ "Edit Card"
+  test "save failure leaves the editor open and preserves the original file", %{
+    conn: conn,
+    directory: directory
+  } do
+    card = card_fixture()
+    {:ok, editor, _html} = live(conn, ~p"/cards/#{card}/edit")
+    File.chmod!(directory, 0o555)
 
-      assert form_live
-             |> form("#card-form", card: @invalid_attrs)
-             |> render_change() =~ "can&#39;t be blank"
-
-      assert {:ok, index_live, _html} =
-               form_live
-               |> form("#card-form", card: @update_attrs)
-               |> render_submit()
-               |> follow_redirect(conn, ~p"/cards")
-
-      html = render(index_live)
-      assert html =~ "Card updated successfully"
-      assert html =~ "some updated filename"
-    end
-
-    test "deletes card in listing", %{conn: conn, card: card} do
-      {:ok, index_live, _html} = live(conn, ~p"/cards")
-
-      assert index_live |> element("#cards-#{card.id} a", "Delete") |> render_click()
-      refute has_element?(index_live, "#cards-#{card.id}")
+    try do
+      editor |> form("#card-form", card: %{body: "Cannot save"}) |> render_submit()
+      assert has_element?(editor, "#card-form")
+      assert has_element?(editor, "#flash-error", "not writable")
+      assert File.read!(Path.join(directory, card.filename)) == card.body
+    after
+      File.chmod!(directory, 0o755)
     end
   end
 
-  describe "Show" do
-    setup [:create_card]
+  test "delete failure leaves the listing visible", %{conn: conn, directory: directory} do
+    card = card_fixture()
+    {:ok, index, _html} = live(conn, ~p"/cards")
+    File.chmod!(directory, 0o555)
 
-    test "displays card", %{conn: conn, card: card} do
-      {:ok, _show_live, html} = live(conn, ~p"/cards/#{card}")
-
-      assert html =~ "Show Card"
-      assert html =~ card.filename
+    try do
+      index |> element(~s([id="delete-#{card.filename}"])) |> render_click()
+      assert has_element?(index, ~s([id="cards-#{card.filename}"]))
+      assert has_element?(index, "#flash-error")
+      assert File.exists?(Path.join(directory, card.filename))
+    after
+      File.chmod!(directory, 0o755)
     end
+  end
 
-    test "updates card and returns to show", %{conn: conn, card: card} do
-      {:ok, show_live, _html} = live(conn, ~p"/cards/#{card}")
+  test "missing cards redirect with a notice instead of crashing", %{conn: conn} do
+    assert {:error, {:live_redirect, %{to: "/cards", flash: %{"error" => _}}}} =
+             live(conn, ~p"/cards/missing.md")
 
-      assert {:ok, form_live, _} =
-               show_live
-               |> element("a", "Edit")
-               |> render_click()
-               |> follow_redirect(conn, ~p"/cards/#{card}/edit?return_to=show")
+    assert {:error, {:live_redirect, %{to: "/cards", flash: %{"error" => _}}}} =
+             live(conn, ~p"/cards/missing.md/edit")
+  end
 
-      assert render(form_live) =~ "Edit Card"
+  test "an unconfigured catalogue produces notices", %{conn: conn, config_file: config_file} do
+    File.write!(config_file, "catalogue-directory = ''\n")
+    {:ok, index, _html} = live(conn, ~p"/cards")
+    assert has_element?(index, "#flash-error", "Set catalogue-directory")
 
-      assert form_live
-             |> form("#card-form", card: @invalid_attrs)
-             |> render_change() =~ "can&#39;t be blank"
-
-      assert {:ok, show_live, _html} =
-               form_live
-               |> form("#card-form", card: @update_attrs)
-               |> render_submit()
-               |> follow_redirect(conn, ~p"/cards/#{card}")
-
-      html = render(show_live)
-      assert html =~ "Card updated successfully"
-      assert html =~ "some updated filename"
-    end
+    assert {:error, {:live_redirect, %{to: "/", flash: %{"error" => _}}}} =
+             live(conn, ~p"/cards/new")
   end
 end

@@ -8,31 +8,33 @@ defmodule CardsOneWeb.CardLive.Show do
     ~H"""
     <Layouts.app flash={@flash}>
       <.header>
-        Card {@card.id}
-        <:subtitle>This is a card record from your database.</:subtitle>
+        <span id="card-title" class="font-mono">{@card.filename}</span>
         <:actions>
-          <.button navigate={~p"/cards"}>
-            <.icon name="hero-arrow-left" />
+          <.button id="back-to-cards" navigate={~p"/cards"}>
+            <.icon name="hero-arrow-left" /> Cards
           </.button>
-          <.button variant="primary" navigate={~p"/cards/#{@card}/edit?return_to=show"}>
+          <.button id="edit-card" variant="primary" navigate={~p"/cards/#{@card}/edit?return_to=show"}>
             <.icon name="hero-pencil-square" /> Edit card
           </.button>
         </:actions>
       </.header>
 
-      <.list>
-        <:item title="Filename">{@card.filename}</:item>
-        <:item title="Body">{@card.body}</:item>
-      </.list>
+      <pre
+        id="card-body"
+        class="whitespace-pre-wrap break-words rounded-xl border border-base-300 p-6 font-mono text-sm leading-7"
+      >{@card.body}</pre>
     </Layouts.app>
     """
   end
 
   @impl true
-  def mount(%{"id" => id}, _session, socket) do
-    {:ok,
-     socket
-     |> assign(:page_title, "Show Card")
-     |> assign(:card, Cards.get_card!(id))}
+  def mount(%{"id" => filename}, _session, socket) do
+    case Cards.get_card(filename) do
+      {:ok, card} ->
+        {:ok, socket |> assign(:page_title, card.filename) |> assign(:card, card)}
+
+      {:error, message} ->
+        {:ok, socket |> put_flash(:error, message) |> push_navigate(to: ~p"/cards")}
+    end
   end
 end
