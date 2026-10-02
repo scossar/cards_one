@@ -9,19 +9,7 @@ defmodule CardsOneWeb.HomeLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex items-center justify-between m-4">
-      <div class="flex items-center gap-2">
-        <span>Count: <span class="font-mono">{@count}</span></span>
-        <button phx-click="inc" class="btn btn-sm btn-outline">+</button>
-      </div>
-    </div>
     <.button navigate={~p"/cards"}>Cards</.button>
     """
-  end
-
-  @impl true
-  def handle_event("inc", _params, socket) do
-    count = socket.assigns.count + 1
-    {:noreply, assign(socket, count: count)}
   end
 end
