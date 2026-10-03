@@ -3,8 +3,10 @@ use tauri::Manager;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let pubsub = elixirkit::PubSub::listen("tcp://127.0.0.1:0").expect("failed to listen");
-    let context: tauri::Context<tauri::Wry> = tauri::generate_context!();
 
+    // This is just for adding the identifier from `tauri.conf.json` to
+    // the app's window on Linux/Wayland:
+    let context: tauri::Context<tauri::Wry> = tauri::generate_context!();
     #[cfg(target_os = "linux")]
     glib::set_prgname(Some(context.config().identifier.as_str()));
 
